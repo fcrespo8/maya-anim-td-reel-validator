@@ -193,7 +193,7 @@ show()
 import maya.cmds as cmds
 """
 def setup_production_disaster():
-    """Crea problemas técnicos reales de producción."""
+    
     # 1. Nombres con caracteres ilegales (muy común en importaciones de FBX)
     if not cmds.objExists("L_arm_Rig_@#_JNT"):
         cmds.joint(name="L_arm_Rig_@#_JNT")

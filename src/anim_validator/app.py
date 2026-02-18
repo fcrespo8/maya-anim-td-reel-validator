@@ -130,11 +130,11 @@ class ValidatorWindow(QtWidgets.QDialog):
         self.search_le.setPlaceholderText("Search check…")
         self.search_le.textChanged.connect(self._rebuild_list)
 
-        self.btn_disaster = QtWidgets.QPushButton("Setup Reel Disaster")
-        self.btn_disaster.clicked.connect(self._on_disaster)
+        #self.btn_disaster = QtWidgets.QPushButton("Setup Reel Disaster")
+        #self.btn_disaster.clicked.connect(self._on_disaster)
 
         top.addWidget(self.search_le, 1)
-        top.addWidget(self.btn_disaster)
+        #top.addWidget(self.btn_disaster)
         root.addLayout(top)
 
         # Split

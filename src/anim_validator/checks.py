@@ -94,15 +94,26 @@ class IllegalNamingCheck(Check):
     def run(self) -> CheckResult:
         res = CheckResult(status=Status.OK, message="OK")
 
-        nodes = cmds.ls(long=False) or []
-        bad = [n for n in nodes if self._illegal.search(n)]
-        if bad:
+        # long=True evita falsos OK si hay duplicados / paths
+        nodes_long = cmds.ls(long=True) or []
+        bad_long = []
+        bad_short = []
+
+        for n in nodes_long:
+            short = n.split("|")[-1]  # basename real
+            if self._illegal.search(short):
+                bad_long.append(n)
+                bad_short.append(short)
+
+        if bad_long:
             res.status = Status.ERROR
-            res.message = f"{len(bad)} nombres inválidos"
-            res.errors = [f"Invalid name: {n}" for n in bad[:200]]
-            # for selection, these are nodes themselves
-            res.error_nodes = bad[:200]
+            res.message = f"{len(bad_long)} nombres inválidos"
+            res.errors = [f"Invalid name: {n}" for n in bad_long[:200]]
+            # para seleccionar en escena, conviene usar el long path
+            res.error_nodes = bad_long[:200]
+
         return res
+
 
     def fix(self) -> bool:
         nodes = cmds.ls(long=False) or []
@@ -156,7 +167,7 @@ class CameraNearClipCheck(Check):
                 warn_shapes.append((cam_shape, float(near)))
 
         if warn_shapes:
-            res.status = Status.WARNING
+            res.status = Status.ERROR
             res.message = f"{len(warn_shapes)} camera(s) con nearClip alto"
             res.warnings = [f"{s} nearClipPlane={v}" for s, v in warn_shapes[:200]]
 
@@ -204,7 +215,7 @@ class ImagePlaneConnectedCheck(Check):
                 found.append((cam_shape, ip))
 
         if found:
-            res.status = Status.WARNING
+            res.status = Status.ERROR
             res.message = f"{len(found)} conexión(es) de imagePlane"
             res.warnings = [f"{cam} <- {ip}" for cam, ip in found[:200]]
 
@@ -319,7 +330,7 @@ class KeysOutsidePlaybackRangeCheck(Check):
                 else:
                     nodes.append("")
             return CheckResult(
-                status=Status.WARNING,
+                status=Status.ERROR,
                 message=f"{len(offenders)} animCurve(s) fuera del rango",
                 warnings=lines,
                 warning_nodes=nodes
