@@ -1,16 +1,21 @@
-# src/anim_validator/run_in_maya.py
+# -*- coding: utf-8 -*-
 from __future__ import annotations
 
-import sys
-from pathlib import Path
+from .app import ValidatorWindow
 
-THIS_FILE = Path(__file__).resolve()
-SRC_DIR = THIS_FILE.parents[1]  # .../src
-if str(SRC_DIR) not in sys.path:
-    sys.path.insert(0, str(SRC_DIR))
+_WINDOW = None
 
-from anim_validator.app import show  # noqa: E402
+def show() -> None:
+    global _WINDOW
+    try:
+        if _WINDOW:
+            _WINDOW.close()
+    except Exception:
+        pass
+
+    _WINDOW = ValidatorWindow()
+    _WINDOW.show_docked()
 
 
-def run():
-    return show()
+if __name__ == "__main__":
+    show()
