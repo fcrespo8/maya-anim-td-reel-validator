@@ -85,47 +85,58 @@ def setup_reel_disaster() -> None:
 # -----------------------------
 
 class IllegalNamingCheck(Check):
-    name = "Naming: illegal characters"
-    description = "Detecta nombres con caracteres no permitidos (ej: @, #, etc.)."
+    name = "Naming: illegal / sanitized names"
+    description = "Detecta nombres con caracteres no permitidos o sanitizados (ej: ____ por reemplazo)."
     fixable = True
 
     _illegal = re.compile(r"[^A-Za-z0-9_:|]+")
+    _sanitized = re.compile(r"_{3,}")  # 3 o más underscores seguidos => típico de sanitización
 
     def run(self) -> CheckResult:
         res = CheckResult(status=Status.OK, message="OK")
 
-        # long=True evita falsos OK si hay duplicados / paths
         nodes_long = cmds.ls(long=True) or []
         bad_long = []
-        bad_short = []
 
         for n in nodes_long:
-            short = n.split("|")[-1]  # basename real
+            short = n.split("|")[-1]
+            # 1) ilegal real (si existiera)
             if self._illegal.search(short):
                 bad_long.append(n)
-                bad_short.append(short)
+                continue
+            # 2) sanitizado (Maya reemplazó @# por _)
+            if self._sanitized.search(short):
+                bad_long.append(n)
 
         if bad_long:
             res.status = Status.ERROR
-            res.message = f"{len(bad_long)} nombres inválidos"
-            res.errors = [f"Invalid name: {n}" for n in bad_long[:200]]
-            # para seleccionar en escena, conviene usar el long path
+            res.message = f"{len(bad_long)} nombres sospechosos (sanitized)"
+            res.errors = [f"Bad name: {n}" for n in bad_long[:200]]
             res.error_nodes = bad_long[:200]
 
         return res
 
-
     def fix(self) -> bool:
-        nodes = cmds.ls(long=False) or []
-        bad = [n for n in nodes if self._illegal.search(n)]
+        nodes_long = cmds.ls(long=True) or []
+        bad = []
+
+        for n in nodes_long:
+            short = n.split("|")[-1]
+            if self._illegal.search(short) or self._sanitized.search(short):
+                bad.append(n)
+
         if not bad:
             return False
 
         fixed_any = False
-        for n in bad:
-            if not cmds.objExists(n):
+        for long_name in bad:
+            if not cmds.objExists(long_name):
                 continue
-            safe = re.sub(self._illegal, "_", n)
+            short = long_name.split("|")[-1]
+
+            # si hay ilegales, reemplazalos
+            safe = re.sub(self._illegal, "_", short)
+            # colapsa underscores repetidos
             safe = re.sub(r"__+", "_", safe).strip("_") or "RENAMED_NODE"
 
             base = safe
@@ -133,14 +144,14 @@ class IllegalNamingCheck(Check):
             while cmds.objExists(safe):
                 idx += 1
                 safe = f"{base}_{idx}"
+
             try:
-                cmds.rename(n, safe)
+                cmds.rename(long_name, safe)
                 fixed_any = True
             except Exception:
                 continue
 
         return fixed_any
-
 
 class CameraNearClipCheck(Check):
     name = "Camera: nearClip too high"
