@@ -191,7 +191,7 @@ show()
 # Botón 8: Crear Issues de Demo (para desarrollo)
 
 import maya.cmds as cmds
-
+"""
 def setup_production_disaster():
     """Crea problemas técnicos reales de producción."""
     # 1. Nombres con caracteres ilegales (muy común en importaciones de FBX)
@@ -216,3 +216,64 @@ def setup_production_disaster():
     cmds.inViewMessage(amg="<hl>Scene 'Corrupted' for Demo: 3 production issues added.</hl>", pos="midCenter", fade=True)
 
 setup_production_disaster()
+
+"""
+import maya.cmds as cmds
+
+def setup_reel_disaster():
+    """Genera problemas técnicos reales para demostrar el validador."""
+    # Para demo: fijamos un playback range "normal"
+    cmds.playbackOptions(min=1, max=100)
+
+    # 1) ERROR NAMING: Caracteres prohibidos
+    illegal_name = "L_arm_@#_RIG_JNT"
+    if not cmds.objExists(illegal_name):
+        cmds.group(em=True, n=illegal_name)
+
+    # 2) WARNING CAMERA: nearClipPlane demasiado alto
+    cam_name = "render_cam_SHOT_01"
+    if not cmds.objExists(cam_name):
+        cam_nodes = cmds.camera(n=cam_name)
+        cam_shape = cam_nodes[1]
+    else:
+        cam_shape = (cmds.listRelatives(cam_name, shapes=True, type="camera") or [None])[0]
+
+    if cam_shape and cmds.objExists(cam_shape):
+        cmds.setAttr(f"{cam_shape}.nearClipPlane", 15.0)
+
+        # 3) WARNING IMAGEPLANE: conectado a la cámara
+        ip = "basura_IP"
+        if not cmds.objExists(ip):
+            ip = cmds.createNode("imagePlane", n=ip)
+
+        try:
+            cmds.connectAttr(f"{ip}.message", f"{cam_shape}.imagePlane[0]", force=True)
+        except Exception:
+            pass
+
+    # 4) WARNING ANIM: time unit incorrecto (para que el check lo detecte)
+    # (si tu check espera "pal", esto lo rompe a propósito)
+    try:
+        cmds.currentUnit(time="ntsc")  # 30fps
+    except Exception:
+        pass
+
+    # 5) WARNING ANIM: keys fuera del playback range
+    ctrl = "demo_CTRL"
+    if not cmds.objExists(ctrl):
+        ctrl = cmds.spaceLocator(n=ctrl)[0]
+
+    # Keys fuera del rango [1, 100]
+    # Usamos translateX para que sea obvio y seleccionable
+    cmds.setAttr(f"{ctrl}.translateX", 0)
+    cmds.setKeyframe(ctrl, at="translateX", t=-10, v=0)
+    cmds.setKeyframe(ctrl, at="translateX", t=10, v=5)
+    cmds.setKeyframe(ctrl, at="translateX", t=200, v=0)
+
+    cmds.inViewMessage(
+        amg="<hl>SCENE PREPARED:</hl> 5 demo issues created.",
+        pos="midCenter",
+        fade=True
+    )
+
+setup_reel_disaster()

@@ -251,14 +251,118 @@ class ImagePlaneConnectedCheck(Check):
 
         return fixed_any
 
+class TimeUnitCheck(Check):
+    name = "Anim: time unit (FPS)"
+    description = "Warn si el time unit no es el esperado (pal=25fps por defecto)."
+    fixable = True
+
+    def __init__(self, expected: str = "pal") -> None:
+        self.expected = expected  # "pal" (25fps) o "film" (24fps), etc.
+
+    def run(self) -> CheckResult:
+        current = cmds.currentUnit(q=True, time=True)
+        if current != self.expected:
+            return CheckResult(
+                status=Status.WARNING,
+                message=f"Time unit actual: {current} (esperado: {self.expected})",
+                warnings=[f"currentUnit(time='{current}') -> debería ser '{self.expected}'"],
+                warning_nodes=[]
+            )
+        return CheckResult(status=Status.OK, message=f"OK ({current})")
+
+    def fix(self) -> bool:
+        try:
+            cmds.currentUnit(time=self.expected)
+            return True
+        except Exception:
+            return False
+
+
+class KeysOutsidePlaybackRangeCheck(Check):
+    name = "Anim: keys outside playback range"
+    description = "Warn si hay keys fuera del playback range (útil para limpiar escenas)."
+    fixable = True
+
+    def __init__(self, max_items: int = 200) -> None:
+        self.max_items = max_items
+
+    def run(self) -> CheckResult:
+        start = cmds.playbackOptions(q=True, min=True)
+        end = cmds.playbackOptions(q=True, max=True)
+
+        anim_curves = cmds.ls(type="animCurve") or []
+        offenders = []  # (node, curve, min_key, max_key)
+        for crv in anim_curves:
+            try:
+                keys = cmds.keyframe(crv, q=True, timeChange=True)
+            except Exception:
+                continue
+            if not keys:
+                continue
+            kmin = min(keys)
+            kmax = max(keys)
+            if kmin < start or kmax > end:
+                # curve -> animCurve; buscamos el node "destino" si podemos
+                dst = cmds.listConnections(crv, s=False, d=True, plugs=True) or []
+                node = ""
+                if dst:
+                    node = dst[0].split(".")[0]
+                offenders.append((node, crv, kmin, kmax))
+
+        if offenders:
+            lines = []
+            nodes = []
+            for node, crv, kmin, kmax in offenders[: self.max_items]:
+                lines.append(f"{crv}: keys [{kmin:.0f}, {kmax:.0f}] fuera de [{start:.0f}, {end:.0f}]")
+                if node and cmds.objExists(node):
+                    nodes.append(node)
+                else:
+                    nodes.append("")
+            return CheckResult(
+                status=Status.WARNING,
+                message=f"{len(offenders)} animCurve(s) fuera del rango",
+                warnings=lines,
+                warning_nodes=nodes
+            )
+
+        return CheckResult(status=Status.OK, message="OK")
+
+    def fix(self) -> bool:
+        start = cmds.playbackOptions(q=True, min=True)
+        end = cmds.playbackOptions(q=True, max=True)
+
+        anim_curves = cmds.ls(type="animCurve") or []
+        fixed_any = False
+
+        for crv in anim_curves:
+            try:
+                keys = cmds.keyframe(crv, q=True, timeChange=True)
+            except Exception:
+                continue
+            if not keys:
+                continue
+
+            # borra keys antes y después del rango
+            try:
+                if min(keys) < start:
+                    cmds.cutKey(crv, time=(-1e9, start - 0.0001))
+                    fixed_any = True
+                if max(keys) > end:
+                    cmds.cutKey(crv, time=(end + 0.0001, 1e9))
+                    fixed_any = True
+            except Exception:
+                continue
+
+        return fixed_any
+
 
 def build_default_checks() -> List[Check]:
-    """
-    Acá definís la lista de checks para tu demo reel.
-    Agregar uno nuevo = sumar a esta lista.
-    """
     return [
         IllegalNamingCheck(),
         CameraNearClipCheck(threshold=1.0, fix_value=0.1),
         ImagePlaneConnectedCheck(),
+
+        # NEW (anim-ish, demo-friendly)
+        TimeUnitCheck(expected="pal"),  # cambiá a "film" si preferís 24fps
+        KeysOutsidePlaybackRangeCheck(),
     ]
