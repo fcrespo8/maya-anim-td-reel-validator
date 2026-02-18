@@ -169,3 +169,50 @@ def slow_presenter_move(start=101, end=131, delay=0.1):
 
 # Ejecuta esto para grabar tu video:
 slow_presenter_move(start=96, end=136, delay=0.15)
+
+
+# Botón 7: Hot-Reload del Validator (para desarrollo)
+import sys
+import importlib
+
+# Cambia esta ruta a tu carpeta local
+REPO_SRC = "/Users/franciscocrespo/dev/github/maya-anim-td-reel-validator/src"
+if REPO_SRC not in sys.path:
+    sys.path.insert(0, REPO_SRC)
+
+import anim_validator.checks
+import anim_validator.app
+importlib.reload(anim_validator.checks)
+importlib.reload(anim_validator.app)
+
+from anim_validator.app import show
+show()
+
+# Botón 8: Crear Issues de Demo (para desarrollo)
+
+import maya.cmds as cmds
+
+def setup_production_disaster():
+    """Crea problemas técnicos reales de producción."""
+    # 1. Nombres con caracteres ilegales (muy común en importaciones de FBX)
+    if not cmds.objExists("L_arm_Rig_@#_JNT"):
+        cmds.joint(name="L_arm_Rig_@#_JNT")
+
+    # 2. Camera clipping roto y ImagePlanes basura
+    cam_name = "render_cam_01"
+    if not cmds.objExists(cam_name):
+        cam = cmds.camera(n=cam_name)[1]
+        cmds.setAttr(f"{cam}.nearClipPlane", 25.0) # Esto hará que no se vea nada cerca
+        ip = cmds.createNode("imagePlane")
+        cmds.connectAttr(f"{ip}.message", f"{cam}.imagePlane[0]")
+
+    # 3. Nodos con namespaces vacíos o raros
+    if not cmds.objExists("temp:garbage_node"):
+        try:
+            cmds.namespace(add="temp")
+            cmds.group(em=True, n="temp:garbage_node")
+        except: pass
+
+    cmds.inViewMessage(amg="<hl>Scene 'Corrupted' for Demo: 3 production issues added.</hl>", pos="midCenter", fade=True)
+
+setup_production_disaster()
