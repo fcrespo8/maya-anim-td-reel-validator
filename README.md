@@ -6,8 +6,6 @@ Designed as a lightweight demo of a real pipeline validation system used in anim
 
 ---
 
-## 🚀 Overview
-
 Anim Scene Validator is a modular validation tool built with:
 
 - Python 3
@@ -39,5 +37,6 @@ All checks include:
 - Detailed issue reporting
 - One-click fix (when applicable)
 - Scene selection on issue
+
 
 
